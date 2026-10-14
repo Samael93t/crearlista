@@ -1,24 +1,22 @@
 import yt_dlp
 import re
 import os
-import pyfiglet
-from rich.console import Console
-from rich.text import Text
 import time
 
-console = Console()
-esp = ' '
+# ============== BANNER NUEVO ==============
+print("""
+╭━╮╱╱╱╱╱╱╱╱╱╭┳┳━┳╮╱╱╱╱
+┃╭╋┳┳━┳━╮╭┳╮┃┣┫━┫╰┳━╮╱
+┃╰┫╭┫┻┫╋╰┫╭╯┃┃┣━┃╭┫╋╰╮
+╰━┻╯╰━┻━━┻╯╱╰┻┻━┻━┻━━╯
 
-# Banner
-banner1 = pyfiglet.figlet_format(f'{esp*2}C R I A R', font='slant')
-banner2 = pyfiglet.figlet_format(f'{esp*2}L I S T A', font='slant')
-banner3 = pyfiglet.figlet_format(f'{esp*3}I P T V', font='slant')
-
-console.print(f'[blue]{banner1}[/blue]')
-console.print(f'[blue]{banner2}[/blue]')
-console.print(f'[cyan]{banner3}[/cyan]')
-print('\033[1;44mHecho por @DarkJVPN - Versión mejorada\033[m\n')
+🄱🅈 🅂🄰🄼🄰🄴🄻 
+""")
+print("\033[1;35mHerramienta para crear listas IPTV\033[m\n")
 time.sleep(1)
+
+# Ruta de guardado
+RUTA_LISTA = '/sdcard/descargas/lista.m3u'
 
 
 def remover_acentos_e_emojis(texto):
@@ -26,7 +24,6 @@ def remover_acentos_e_emojis(texto):
     if not texto:
         return "Sin_Titulo"
     
-    # Reemplazar acentos
     reemplazos = {
         r'[áàâãä]': 'a', r'[ÁÀÂÃÄ]': 'A',
         r'[éèêë]': 'e', r'[ÉÈÊË]': 'E',
@@ -38,9 +35,7 @@ def remover_acentos_e_emojis(texto):
     for patron, reemplazo in reemplazos.items():
         texto = re.sub(patron, reemplazo, texto)
     
-    # Eliminar emojis y símbolos raros PERO mantener espacios
     texto = re.sub(r'[^\w\s\-\(\)\[\]]', '', texto)
-    # Eliminar espacios múltiples
     texto = re.sub(r'\s+', ' ', texto).strip()
     
     return texto if texto else "Sin_Titulo"
@@ -50,13 +45,12 @@ def obtener_enlace_video(video_url):
     """Extrae el enlace reproducible de yt-dlp con manejo de errores"""
     
     ydl_opts = {
-        'format': 'best',  # Cambiado: obtiene el mejor formato disponible
+        'format': 'best',
         'quiet': False,
         'no_warnings': False,
         'extract_flat': False,
     }
     
-    # Si existe cookies.txt, usarlo (ayuda con Dailymotion)
     if os.path.exists('cookies.txt'):
         ydl_opts['cookiefile'] = 'cookies.txt'
         print("✅ Archivo de cookies detectado y activado")
@@ -74,14 +68,10 @@ def obtener_enlace_video(video_url):
             titulo = info.get('title', 'Sin Título')
             titulo_limpio = remover_acentos_e_emojis(titulo)
             
-            # Buscar el mejor enlace reproducible
             enlace = None
-            
-            # 1. Buscar m3u8 primero
             enlace = next((f['manifest_url'] for f in info.get('formats', []) 
                           if f.get('manifest_url', '').endswith('.m3u8')), None)
             
-            # 2. Si no hay m3u8, usar el enlace directo del mejor formato
             if not enlace:
                 mejor_formato = info.get('url') or info.get('formats', [{}])[0].get('url')
                 enlace = mejor_formato
@@ -102,13 +92,14 @@ def obtener_enlace_video(video_url):
         return None, None
 
 
-def guardar_en_lista(titulo, enlace, archivo='lista.m3u'):
-    """Guarda el enlace en formato M3U con codificación correcta"""
+def guardar_en_lista(titulo, enlace):
+    """Guarda el enlace en formato M3U en /sdcard/descargas/"""
     try:
-        with open(archivo, 'a', encoding='utf-8') as f:
+        os.makedirs(os.path.dirname(RUTA_LISTA), exist_ok=True)
+        with open(RUTA_LISTA, 'a', encoding='utf-8') as f:
             f.write(f"#EXTINF:-1,{titulo}\n")
             f.write(f"{enlace}\n")
-        print(f"💾 Guardado en: {archivo}")
+        print(f"💾 Guardado en: {RUTA_LISTA}")
         return True
     except Exception as e:
         print(f"❌ Error al guardar: {e}")
@@ -129,7 +120,7 @@ def mostrar_ayuda():
 
 
 def main():
-    print("📌 Ingresa los enlaces de YouTube, Dailymotion, etc.\n")
+    print(f"📌 Los archivos se guardarán en: {RUTA_LISTA}\n")
     
     while True:
         entrada = input("\n🔗 Ingresa enlace o comando: ").strip()
@@ -143,8 +134,8 @@ def main():
             continue
         
         if entrada.lower() == 'lista':
-            if os.path.exists('lista.m3u'):
-                with open('lista.m3u', 'r', encoding='utf-8') as f:
+            if os.path.exists(RUTA_LISTA):
+                with open(RUTA_LISTA, 'r', encoding='utf-8') as f:
                     lineas = f.readlines()
                     videos = len([l for l in lineas if l.startswith('#EXTINF')])
                     print(f"📋 Tu lista tiene: {videos} videos")
@@ -155,11 +146,10 @@ def main():
         if entrada.lower() == 'limpiar':
             confirmar = input("⚠️ ¿Borrar todo? (s/n): ").lower()
             if confirmar == 's':
-                open('lista.m3u', 'w').close()
+                open(RUTA_LISTA, 'w').close()
                 print("🗑️ Lista vaciada")
             continue
         
-        # Procesar como enlace
         if entrada.startswith(('http://', 'https://')):
             titulo, enlace = obtener_enlace_video(entrada)
             if titulo and enlace:
